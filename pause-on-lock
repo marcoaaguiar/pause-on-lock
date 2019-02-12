@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-if [ "$XDG_CURRENT_DESKTOP" == "Unity" ] ; then
+if [[ "$XDG_CURRENT_DESKTOP" == "Unity" ]] ; then
   DBUS_LOCK="interface='com.canonical.Unity.Session'"
   LOCK_SIGNAL="Locked"
   UNLOCK_SIGNAL="Unlocked"
@@ -29,13 +29,17 @@ elif [[ "$XDG_CURRENT_DESKTOP" == *"GNOME"* ]] ; then
   DBUS_LOCK="interface='org.gnome.ScreenSaver',member='ActiveChanged'"
   LOCK_SIGNAL="true"
   UNLOCK_SIGNAL="false"
-elif [ "$XDG_CURRENT_DESKTOP" == "X-Cinnamon" ] ; then
+elif [[ "$XDG_CURRENT_DESKTOP" == "X-Cinnamon" ]] ; then
   DBUS_LOCK="interface='org.cinnamon.ScreenSaver',member='ActiveChanged'"
   LOCK_SIGNAL="true"
   UNLOCK_SIGNAL="false"
+elif [[ "$XDG_CURRENT_DESKTOP" == "KDE" ]] ; then
+  DBUS_LOCK="interface='org.freedesktop.ScreenSaver',member='ActiveChanged'"
+  LOCK_SIGNAL="true"
+  UNLOCK_SIGNAL="false"
 else
-echo "Error: Unsupported desktop. Supported desktops are Unity, GNOME and Cinnamon."
-exit 0
+  echo "Error: Unsupported desktop. Supported desktops are Unity, GNOME, Cinnamon, and KDE."
+  exit 0
 fi
 dbus-monitor --session "type='signal',$DBUS_LOCK" | \
 (
@@ -53,19 +57,19 @@ dbus-monitor --session "type='signal',$DBUS_LOCK" | \
     # pause on lock
     if echo "$X" | grep "$LOCK_SIGNAL" &> /dev/null; then
       # with playerctl
-      if [ "$(playerctl --version 2>/dev/null)" ]; then
+      if [[ "$(playerctl --version 2>/dev/null)" ]]; then
         # get list of running players
         read -a players <<< $(playerctl --list-all)
         # check whether a player is playing
         for player in "${players[@]}"
         do
-          if [ "$(playerctl --player="$player" status)" = "Playing" ] ; then
+          if [[ "$(playerctl --player="$player" status)" = "Playing" ]] ; then
             # and pause it
             playerctl --player="$player" pause
             PAUSED_PLAYER=$player
           fi
         done
-      # without playerctl  
+      # without playerctl
       else
         if  dbus-send --print-reply --dest="$RHYTHMBOX" "$MEDIAPLAYER" \
           "$GET_PROPERTIES" string:$PLAYER string:'PlaybackStatus' | \
@@ -85,18 +89,18 @@ dbus-monitor --session "type='signal',$DBUS_LOCK" | \
     # resume on unlock
     if echo "$X" | grep "$UNLOCK_SIGNAL" &> /dev/null; then
       # with playerctl
-      if [ "$(playerctl --version 2>/dev/null)" ]; then
+      if [[ "$(playerctl --version 2>/dev/null)" ]]; then
         # did we pause a player on lock?
-        if [ "$PAUSED_PLAYER" != "none" ]; then
+        if [[ "$PAUSED_PLAYER" != "none" ]]; then
           playerctl --player="$PAUSED_PLAYER" play
         fi
       # without playerctl
       else
         # did we pause on lock?
-        if [ "$PAUSED_PLAYER" = "rhythmbox" ] ; then
+        if [[ "$PAUSED_PLAYER" = "rhythmbox" ]] ; then
           dbus-send --print-reply --dest="$RHYTHMBOX" "$MEDIAPLAYER" \
             "$PLAYER".Play &> /dev/null
-        elif [ "$PAUSED_PLAYER" = "spotify" ] ; then
+        elif [[ "$PAUSED_PLAYER" = "spotify" ]] ; then
           dbus-send --print-reply --dest="$SPOTIFY" "$MEDIAPLAYER" \
             "$PLAYER".Play &> /dev/null
         fi
